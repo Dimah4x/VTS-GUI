@@ -66,7 +66,7 @@ class ChirpStackClient:
         req.limit = 100
 
         resp = client.List(req, metadata=auth_token)
-        print(resp.total_count)
+
         return resp.result
         # req = self.device_service.List(
         #     # application_id=application_id,
