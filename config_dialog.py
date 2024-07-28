@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import json
 import os
-import grpc
 from chirpstack_client import ChirpStackClient
+import grpc
 
 CONFIG_FILE = 'config.json'
 
@@ -20,7 +20,6 @@ class ConfigDialog:
         self.tenant_id = tk.StringVar()
         self.config_complete = False
         self.devices = []
-
         self.load_configuration()
         self.create_widgets()
 
@@ -77,7 +76,10 @@ class ConfigDialog:
             self.save_configuration()
             self.master.destroy()
         except grpc.RpcError as e:
-            messagebox.showerror("Synchronization Error", f"Failed to sync devices: {e.details()}")
+            error_details = e.details() if e.details() else "Unknown error"
+            messagebox.showerror("Synchronization Error", f"Failed to sync devices: {error_details}")
+            # Reset the flag to allow the user to retry
+            self.config_complete = False
 
     def save_configuration(self):
         config = {
