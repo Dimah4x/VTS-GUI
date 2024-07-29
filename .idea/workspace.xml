@@ -4,16 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="added list device functionallity">
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config_dialog.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vts_gui.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vts_gui.iml" afterDir="false" />
+    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="add implementation for end node class and ndoe manager&#10;add functionallity for viewing currently selected end nodes for testing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/App.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/chirpstack_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/chirpstack_client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/config_dialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/node_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,13 +47,16 @@
   &quot;associatedIndex&quot;: 1
 }</component>
   <component name="ProjectId" id="2hn7GU7BvVrsS9oYBQ8FKkYeBPl" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
     "Python.App.executor": "Run",
     "Python.main.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
@@ -150,7 +149,31 @@
       <option name="project" value="LOCAL" />
       <updated>1721733176130</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="added configuration flow in config_dialog.py&#10;added config json to save current configurations&#10;upon selecting application id the app will sync with currently available devices">
+      <option name="closed" value="true" />
+      <created>1722201745545</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1722201745545</updated>
+    </task>
+    <task id="LOCAL-00004" summary="added configuration flow in config_dialog.py&#10;added config json to save current configurations&#10;upon selecting application id the app will sync with currently available devices">
+      <option name="closed" value="true" />
+      <created>1722201761853</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1722201761853</updated>
+    </task>
+    <task id="LOCAL-00005" summary="add implementation for end node class and ndoe manager&#10;add functionallity for viewing currently selected end nodes for testing">
+      <option name="closed" value="true" />
+      <created>1722203554304</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1722203554304</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -158,14 +181,29 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="dev" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
     </option>
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="added list device functionallity" />
-    <option name="LAST_COMMIT_MESSAGE" value="added list device functionallity" />
+    <MESSAGE value="added configuration flow in config_dialog.py&#10;added config json to save current configurations&#10;upon selecting application id the app will sync with currently available devices" />
+    <MESSAGE value="add implementation for end node class and ndoe manager&#10;add functionallity for viewing currently selected end nodes for testing" />
+    <option name="LAST_COMMIT_MESSAGE" value="add implementation for end node class and ndoe manager&#10;add functionallity for viewing currently selected end nodes for testing" />
   </component>
 </project>

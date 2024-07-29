@@ -2,7 +2,6 @@ import grpc
 from chirpstack_api import api
 
 
-
 class ChirpStackClient:
     def __init__(self, server, api_token):
         self.server = server
@@ -24,4 +23,44 @@ class ChirpStackClient:
 
         resp = client.List(req, metadata=auth_token)
 
+        return resp.result
+
+    def remove_device(self, dev_eui):
+        client = self.device_service
+        auth_token = self._get_metadata()
+        req = api.DeleteDeviceRequest(dev_eui=dev_eui)
+        client.Delete(req, metadata=auth_token)
+
+    def add_device(self, dev_eui, name, device_profile_id, application_id, nwk_key, description=""):
+        device = api.Device(
+            dev_eui=dev_eui,
+            name=name,
+            device_profile_id=device_profile_id,
+            application_id=application_id,
+            description=description,
+            is_disabled=False,
+            skip_fcnt_check=False,
+            join_eui="0000000000000000"  # Default Join EUI, adjust if needed
+        )
+
+        req = api.CreateDeviceRequest(device=device)
+        auth_token = self._get_metadata()
+        self.device_service.Create(req, metadata=auth_token)
+
+        # Set the NwkKey only
+        keys_req = api.CreateDeviceKeysRequest(
+            device_keys=api.DeviceKeys(
+                dev_eui=dev_eui,
+                nwk_key=nwk_key
+            )
+        )
+        self.device_service.CreateKeys(keys_req, metadata=auth_token)
+
+    def get_device_profiles(self, tenant_id):
+        req = api.ListDeviceProfilesRequest(
+            limit=100,  # Set the limit as needed
+            tenant_id=tenant_id  # Specify the tenant ID if applicable
+        )
+        auth_token = self._get_metadata()
+        resp = self.device_profile_service.List(req, metadata=auth_token)
         return resp.result

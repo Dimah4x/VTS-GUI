@@ -36,7 +36,7 @@ class ConfigDialog:
         ttk.Label(self.master, text="App ID:").grid(row=3, column=0, padx=10, pady=5, sticky='w')
         ttk.Entry(self.master, textvariable=self.app_id).grid(row=3, column=1, padx=10, pady=5)
 
-        ttk.Label(self.master, text="Tenant ID (Optional):").grid(row=4, column=0, padx=10, pady=5, sticky='w')
+        ttk.Label(self.master, text="Tenant ID:").grid(row=4, column=0, padx=10, pady=5, sticky='w')
         ttk.Entry(self.master, textvariable=self.tenant_id).grid(row=4, column=1, padx=10, pady=5)
 
         ttk.Button(self.master, text="Connect", command=self.connect).grid(row=5, column=0, columnspan=2, pady=10)
