@@ -18,6 +18,7 @@ class App:
         self.app_id = app_id  # Store App ID from configuration
         self.tenant_id = tenant_id  # Store Tenant ID from configuration
         self.device_profiles = self.fetch_device_profiles()
+        self.start_periodic_refresh(interval_ms=60000)  # Refresh every 60 seconds
         self.create_widgets()
 
     def fetch_device_profiles(self):
@@ -153,7 +154,7 @@ class App:
 
         # Fetch additional metrics if the device is online
         metrics = {}
-        is_online = 1
+        # is_online = 1  # For testing
         if is_online:
             metrics_resp = self.chirpstack_client.get_device_link_metrics(device.dev_eui)
             if metrics_resp:
@@ -172,14 +173,25 @@ class App:
 
     def update_device_status(self):
         if not self.selected_node:
-            messagebox.showwarning("No Device Selected", "Please select a device first.")
-            return
+            return  # Do not proceed if no device is selected
 
         def fetch_and_update():
             try:
-                device = self.selected_node  # Use the selected device
+                device = self.selected_node
                 self.display_device_status(device)
             except grpc.RpcError as e:
                 self.alert_user(f"Failed to update device status: {e.details()}")
 
         threading.Thread(target=fetch_and_update).start()
+
+    def start_periodic_refresh(self, interval_ms=60000):
+        """Starts periodic refresh of device status every `interval_ms` milliseconds."""
+
+        def refresh():
+            if self.selected_node:
+                self.update_device_status()
+            self.master.after(interval_ms, refresh)
+
+        # Start the refresh loop
+        refresh()
+
