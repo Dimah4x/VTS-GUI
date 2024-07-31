@@ -1,5 +1,6 @@
 import grpc
 from chirpstack_api import api
+import datetime
 
 
 class ChirpStackClient:
@@ -17,13 +18,15 @@ class ChirpStackClient:
     def list_devices(self, application_id):
         client = self.device_service
         auth_token = self._get_metadata()
-        req = api.ListDevicesRequest()
-        req.application_id = application_id
-        req.limit = 100
+        req = api.ListDevicesRequest(application_id=application_id, limit=100)
 
-        resp = client.List(req, metadata=auth_token)
-
-        return resp.result
+        try:
+            resp = client.List(req, metadata=auth_token)
+            # Assuming resp.result contains DeviceListItem objects directly
+            return resp.result
+        except grpc.RpcError as e:
+            print(f"Error fetching devices: {e.details()}")
+            return []
 
     def remove_device(self, dev_eui):
         client = self.device_service
@@ -64,3 +67,27 @@ class ChirpStackClient:
         auth_token = self._get_metadata()
         resp = self.device_profile_service.List(req, metadata=auth_token)
         return resp.result
+
+    def get_device_status(self, dev_eui):
+        try:
+            req = api.GetDeviceRequest(dev_eui=dev_eui)
+            resp = self.device_service.Get(req, metadata=self._get_metadata())
+            device = resp.device
+
+            # Accessing 'device_status' and 'last_seen_at' from DeviceListItem
+            last_seen_at = getattr(device, 'last_seen_at', None)
+            device_status = getattr(device, 'device_status', None)
+            is_online = device_status and device_status.status == 'ONLINE'
+
+            # Convert last_seen_at from google.protobuf.Timestamp to a readable format
+            last_seen = 'Unknown'
+            if last_seen_at:
+                last_seen = datetime.fromtimestamp(last_seen_at.seconds).strftime('%Y-%m-%d %H:%M:%S')
+
+            return {
+                "is_online": is_online,
+                "last_seen": last_seen,
+            }
+        except grpc.RpcError as e:
+            print(f"Error fetching device status for {dev_eui}: {e.details()}")
+            return {"is_online": False, "last_seen": "Unknown"}

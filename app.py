@@ -4,6 +4,7 @@ from node_manager import NodeManager
 from chirpstack_client import ChirpStackClient
 from end_node import EndNode  # Importing EndNode class
 import grpc  # Import grpc for handling exceptions
+import threading
 
 class App:
     def __init__(self, master, devices, chirpstack_client, app_id, tenant_id):
@@ -46,6 +47,15 @@ class App:
 
         self.eui_label = tk.Label(self.master, text="Device EUI: ")
         self.eui_label.pack(pady=10)
+
+        self.device_status_panel = tk.Frame(self.master)
+        self.device_status_panel.pack(fill='both', expand=True)
+
+        self.device_list = tk.Listbox(self.device_status_panel)
+        self.device_list.pack(fill='both', expand=True)
+
+        self.refresh_button = tk.Button(self.master, text="Refresh Status", command=self.update_device_status)
+        self.refresh_button.pack()
 
     def update_selected_node(self, event):
         selected_device_name = self.device_var.get()
@@ -129,3 +139,23 @@ class App:
             error_details = e.details() if e.details() else "Unknown error"
             messagebox.showerror("Error", f"Failed to add node: {error_details}")
 
+    def display_device_status(self, devices):
+        self.device_list.delete(0, tk.END)
+        for device in devices:
+            status_info = self.chirpstack_client.get_device_status(device.dev_eui)
+            is_online = status_info.get('is_online', False)
+            last_seen = status_info.get('last_seen', 'Unknown')
+            status = f"{device.name}: {'Online' if is_online else 'Offline'}, Last seen: {last_seen}"
+            self.device_list.insert(tk.END, status)
+
+    def alert_user(self, message):
+        messagebox.showwarning("Alert", message)
+
+    def update_device_status(self):
+        def fetch_and_update():
+            try:
+                devices = self.chirpstack_client.list_devices(self.app_id)  # Pass the application ID if needed
+                self.display_device_status(devices)
+            except grpc.RpcError as e:
+                self.alert_user(f"Failed to update device status: {e.details()}")
+        threading.Thread(target=fetch_and_update).start()
