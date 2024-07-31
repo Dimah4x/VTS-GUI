@@ -6,6 +6,7 @@ from end_node import EndNode  # Importing EndNode class
 import grpc  # Import grpc for handling exceptions
 import threading
 
+
 class App:
     def __init__(self, master, devices, chirpstack_client, app_id, tenant_id):
         self.master = master
@@ -34,10 +35,13 @@ class App:
         self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
         self.device_dropdown.pack(pady=10)
 
-        self.device_dropdown.bind("<<ComboboxSelected>>", self.update_selected_node)
+        # self.device_dropdown.bind("<<ComboboxSelected>>", self.update_selected_node)
+        self.device_dropdown.bind("<<ComboboxSelected>>", lambda event: self.update_selected_node(event))
+        # self.select_button = ttk.Button(self.master, text="Select Device", command=self.select_device)
+        # self.select_button.pack(pady=10)  # Added update_selected_node method to combobox binding, seems redundant
 
-        self.select_button = ttk.Button(self.master, text="Select Device", command=self.select_device)
-        self.select_button.pack(pady=10)
+        self.refresh_button = ttk.Button(self.master, text="Refresh Status", command=self.update_device_status)
+        self.refresh_button.pack(pady=10)
 
         self.remove_button = ttk.Button(self.master, text="Remove Node", command=self.remove_selected_node)
         self.remove_button.pack(pady=10)
@@ -54,14 +58,14 @@ class App:
         self.device_list = tk.Listbox(self.device_status_panel)
         self.device_list.pack(fill='both', expand=True)
 
-        self.refresh_button = tk.Button(self.master, text="Refresh Status", command=self.update_device_status)
-        self.refresh_button.pack()
 
     def update_selected_node(self, event):
         selected_device_name = self.device_var.get()
-        self.selected_node = next((node for node in self.node_manager.get_all_nodes() if str(node) == selected_device_name), None)
+        self.selected_node = next(
+            (node for node in self.node_manager.get_all_nodes() if str(node) == selected_device_name), None)
         if self.selected_node:
             self.eui_label.config(text=f"Device EUI: {self.selected_node.dev_eui}")
+            self.update_device_status()  # Automatically refresh status when a device is selected
         else:
             self.eui_label.config(text="Device EUI: Not available")
 
@@ -73,7 +77,8 @@ class App:
 
     def remove_selected_node(self):
         if self.selected_node:
-            confirm = messagebox.askyesno("Confirm Removal", f"Are you sure you want to remove the node {self.selected_node.name}?")
+            confirm = messagebox.askyesno("Confirm Removal",
+                                          f"Are you sure you want to remove the node {self.selected_node.name}?")
             if confirm:
                 try:
                     self.chirpstack_client.remove_device(self.selected_node.dev_eui)
@@ -115,7 +120,8 @@ class App:
         self.nwk_key_entry = tk.Entry(self.add_node_window)
         self.nwk_key_entry.grid(row=4, column=1, pady=5, padx=5)
 
-        ttk.Button(self.add_node_window, text="Add Node", command=self.add_node).grid(row=5, column=0, columnspan=2, pady=10)
+        ttk.Button(self.add_node_window, text="Add Node", command=self.add_node).grid(row=5, column=0, columnspan=2,
+                                                                                      pady=10)
 
     def add_node(self):
         dev_eui = self.dev_eui_entry.get()
@@ -139,23 +145,41 @@ class App:
             error_details = e.details() if e.details() else "Unknown error"
             messagebox.showerror("Error", f"Failed to add node: {error_details}")
 
-    def display_device_status(self, devices):
+    def display_device_status(self, device):
         self.device_list.delete(0, tk.END)
-        for device in devices:
-            status_info = self.chirpstack_client.get_device_status(device.dev_eui)
-            is_online = status_info.get('is_online', False)
-            last_seen = status_info.get('last_seen', 'Unknown')
-            status = f"{device.name}: {'Online' if is_online else 'Offline'}, Last seen: {last_seen}"
-            self.device_list.insert(tk.END, status)
+        status_info = self.chirpstack_client.get_device_status(device.dev_eui)
+        is_online = status_info.get('is_online', False)
+        last_seen = status_info.get('last_seen', 'Unknown')
+
+        # Fetch additional metrics if the device is online
+        metrics = {}
+        is_online = 1
+        if is_online:
+            metrics_resp = self.chirpstack_client.get_device_link_metrics(device.dev_eui)
+            if metrics_resp:
+                metrics['rssi'] = metrics_resp.gw_rssi
+                metrics['snr'] = metrics_resp.gw_snr
+                metrics['errors'] = metrics_resp.errors
+                metrics['rx_packets'] = metrics_resp.rx_packets
+
+        status = f"{device.name}: {'Online' if is_online else 'Offline'}, Last seen: {last_seen}"
+        if is_online:
+            status += f", RSSI: {metrics.get('rssi', 'N/A')}, SNR: {metrics.get('snr', 'N/A')}"
+        self.device_list.insert(tk.END, status)
 
     def alert_user(self, message):
         messagebox.showwarning("Alert", message)
 
     def update_device_status(self):
+        if not self.selected_node:
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+
         def fetch_and_update():
             try:
-                devices = self.chirpstack_client.list_devices(self.app_id)  # Pass the application ID if needed
-                self.display_device_status(devices)
+                device = self.selected_node  # Use the selected device
+                self.display_device_status(device)
             except grpc.RpcError as e:
                 self.alert_user(f"Failed to update device status: {e.details()}")
+
         threading.Thread(target=fetch_and_update).start()

@@ -1,6 +1,7 @@
 import grpc
 from chirpstack_api import api
-import datetime
+from datetime import datetime, timedelta
+from google.protobuf.timestamp_pb2 import Timestamp
 
 
 class ChirpStackClient:
@@ -91,3 +92,27 @@ class ChirpStackClient:
         except grpc.RpcError as e:
             print(f"Error fetching device status for {dev_eui}: {e.details()}")
             return {"is_online": False, "last_seen": "Unknown"}
+
+    def get_device_link_metrics(self, dev_eui):
+        client = self.device_service
+        auth_token = self._get_metadata()
+
+        # Define the end time as now and the start time as 24 hours before
+        end_time = Timestamp()
+        end_time.GetCurrentTime()
+
+        start_time = Timestamp()
+        start_time.FromDatetime(datetime.utcnow() - timedelta(days=1))
+
+        req = api.GetDeviceLinkMetricsRequest(
+            dev_eui=dev_eui,
+            start=start_time,
+            end=end_time
+        )
+
+        try:
+            resp = client.GetLinkMetrics(req, metadata=auth_token)
+            return resp  # Assuming resp contains the metrics data
+        except grpc.RpcError as e:
+            print(f"Error fetching device metrics for {dev_eui}: {e.details()}")
+            return None

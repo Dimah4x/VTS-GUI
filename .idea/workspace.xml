@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="implemented add/remove node functionality &#10;added node add form flow">
+    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="added device status and last seen functionality for device listing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/chirpstack_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/chirpstack_client.py" afterDir="false" />
@@ -179,7 +179,15 @@
       <option name="project" value="LOCAL" />
       <updated>1722288902532</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="added device status and last seen functionality for device listing">
+      <option name="closed" value="true" />
+      <created>1722439484243</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1722439484243</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -211,6 +219,7 @@
     <MESSAGE value="added configuration flow in config_dialog.py&#10;added config json to save current configurations&#10;upon selecting application id the app will sync with currently available devices" />
     <MESSAGE value="add implementation for end node class and ndoe manager&#10;add functionallity for viewing currently selected end nodes for testing" />
     <MESSAGE value="implemented add/remove node functionality &#10;added node add form flow" />
-    <option name="LAST_COMMIT_MESSAGE" value="implemented add/remove node functionality &#10;added node add form flow" />
+    <MESSAGE value="added device status and last seen functionality for device listing" />
+    <option name="LAST_COMMIT_MESSAGE" value="added device status and last seen functionality for device listing" />
   </component>
 </project>
