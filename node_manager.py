@@ -1,33 +1,27 @@
-import json
+# node_manager.py
+
 from end_node import EndNode
 
 class NodeManager:
-    def __init__(self, filename="nodes.json"):
-        self.filename = filename
-        self.nodes = self.load_nodes()
-
-    def load_nodes(self):
-        try:
-            with open(self.filename, 'r') as file:
-                data = json.load(file)
-                return [EndNode(**node) for node in data]
-        except FileNotFoundError:
-            return []
-
-    def save_nodes(self):
-        with open(self.filename, 'w') as file:
-            json.dump([node.to_dict() for node in self.nodes], file)
+    def __init__(self):
+        self.nodes = {}
 
     def add_node(self, node):
-        self.nodes.append(node)
-        self.save_nodes()
+        self.nodes[node.dev_eui] = node
 
     def remove_node(self, dev_eui):
-        self.nodes = [node for node in self.nodes if node.dev_eui != dev_eui]
-        self.save_nodes()
+        if dev_eui in self.nodes:
+            del self.nodes[dev_eui]
 
-    def get_node_by_eui(self, dev_eui):
-        for node in self.nodes:
-            if node.dev_eui == dev_eui:
-                return node
-        return None
+    def get_node(self, dev_eui):
+        return self.nodes.get(dev_eui)
+
+    def get_all_nodes(self):
+        return list(self.nodes.values())
+
+    def load_nodes_from_chirpstack(self, devices):
+        self.nodes.clear()
+        for device in devices:
+            # Assuming 'device' is an object with 'dev_eui' and 'name' attributes
+            node = EndNode(dev_eui=device.dev_eui, name=device.name)
+            self.add_node(node)
