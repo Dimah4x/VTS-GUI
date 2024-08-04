@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from google.protobuf.timestamp_pb2 import Timestamp
 
 
+
 class ChirpStackClient:
     def __init__(self, server, api_token):
         self.server = server
@@ -69,50 +70,44 @@ class ChirpStackClient:
         resp = self.device_profile_service.List(req, metadata=auth_token)
         return resp.result
 
-    def get_device_status(self, dev_eui):
-        try:
-            req = api.GetDeviceRequest(dev_eui=dev_eui)
-            resp = self.device_service.Get(req, metadata=self._get_metadata())
-            device = resp.device
+    # def get_device_status(self, dev_eui):
+    #     try:
+    #         req = api.GetDeviceRequest(dev_eui=dev_eui)
+    #         resp = self.device_service.Get(req, metadata=self._get_metadata())
+    #         device = resp.device
+    #         print(f"Device object: {device}")
+    #         last_seen = device.updated_at  # Assuming updated_at can be used for last_seen
+    #         is_online = device.device_status.battery_level > 0  # Assuming battery_level > 0 indicates online status
+    #         return {"last_seen": last_seen, "is_online": is_online}
+    #     except grpc.RpcError as e:
+    #         print(f"Error getting device status for {dev_eui}: {e.details()}")
+    #         return {"last_seen": "Unknown", "is_online": False}
+    #
+    # def get_device_link_metrics(self, dev_eui):
+    #     try:
+    #         req = api.GetDeviceLinkMetricsRequest(dev_eui=dev_eui)
+    #         resp = self.device_service.GetLinkMetrics(req, metadata=self._get_metadata())
+    #         print(f"Device {dev_eui} link metrics: {resp}")
+    #         return {
+    #             "gw_rssi": resp.rx_packets[0].rssi,
+    #             "gw_snr": resp.rx_packets[0].snr,
+    #             "errors": resp.errors,
+    #             "rx_packets": resp.rx_packets
+    #         }
+    #     except grpc.RpcError as e:
+    #         print(f"Error getting device link metrics for {dev_eui}: {e.details()}")
+    #         return None
 
-            # Accessing 'device_status' and 'last_seen_at' from DeviceListItem
-            last_seen_at = getattr(device, 'last_seen_at', None)
-            device_status = getattr(device, 'device_status', None)
-            is_online = device_status and device_status.status == 'ONLINE'
-
-            # Convert last_seen_at from google.protobuf.Timestamp to a readable format
-            last_seen = 'Unknown'
-            if last_seen_at:
-                last_seen = datetime.fromtimestamp(last_seen_at.seconds).strftime('%Y-%m-%d %H:%M:%S')
-
-            return {
-                "is_online": is_online,
-                "last_seen": last_seen,
-            }
-        except grpc.RpcError as e:
-            print(f"Error fetching device status for {dev_eui}: {e.details()}")
-            return {"is_online": False, "last_seen": "Unknown"}
-
-    def get_device_link_metrics(self, dev_eui):
-        client = self.device_service
-        auth_token = self._get_metadata()
-
-        # Define the end time as now and the start time as 24 hours before
-        end_time = Timestamp()
-        end_time.GetCurrentTime()
-
-        start_time = Timestamp()
-        start_time.FromDatetime(datetime.utcnow() - timedelta(days=1))
-
-        req = api.GetDeviceLinkMetricsRequest(
-            dev_eui=dev_eui,
-            start=start_time,
-            end=end_time
-        )
+    def enqueue_downlink(self, dev_eui, data, confirmed=True, f_port=10):
+        """Enqueue a downlink message to a device."""
+        req = api.EnqueueDeviceQueueItemRequest()
+        req.queue_item.confirmed = confirmed
+        req.queue_item.data = data
+        req.queue_item.dev_eui = dev_eui
+        req.queue_item.f_port = f_port
 
         try:
-            resp = client.GetLinkMetrics(req, metadata=auth_token)
-            return resp  # Assuming resp contains the metrics data
+            self.device_service.Enqueue(req, metadata=self._get_metadata())
+            return True, "Command enqueued successfully."
         except grpc.RpcError as e:
-            print(f"Error fetching device metrics for {dev_eui}: {e.details()}")
-            return None
+            return False, f"Failed to enqueue command: {e.details()}"

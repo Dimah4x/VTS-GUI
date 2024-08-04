@@ -5,6 +5,10 @@ from chirpstack_client import ChirpStackClient
 from end_node import EndNode  # Importing EndNode class
 import grpc  # Import grpc for handling exceptions
 import threading
+from command_dict import COMMANDS
+import paho.mqtt.client as mqtt
+import json
+
 
 
 class App:
@@ -18,8 +22,14 @@ class App:
         self.app_id = app_id  # Store App ID from configuration
         self.tenant_id = tenant_id  # Store Tenant ID from configuration
         self.device_profiles = self.fetch_device_profiles()
-        self.start_periodic_refresh(interval_ms=60000)  # Refresh every 60 seconds
+        # self.start_periodic_refresh(interval_ms=60000)  # Refresh every 60 seconds
         self.create_widgets()
+        # Set up MQTT client
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.on_connect = self.on_connect
+        self.mqtt_client.on_message = self.on_message
+        self.mqtt_client.connect("192.168.1.131", 1883, 60)
+        self.mqtt_client.loop_start()
 
     def fetch_device_profiles(self):
         try:
@@ -36,13 +46,13 @@ class App:
         self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
         self.device_dropdown.pack(pady=10)
 
-        # self.device_dropdown.bind("<<ComboboxSelected>>", self.update_selected_node)
-        self.device_dropdown.bind("<<ComboboxSelected>>", lambda event: self.update_selected_node(event))
+        self.device_dropdown.bind("<<ComboboxSelected>>", self.update_selected_node)
+        # self.device_dropdown.bind("<<ComboboxSelected>>", lambda event: self.update_selected_node(event))
         # self.select_button = ttk.Button(self.master, text="Select Device", command=self.select_device)
         # self.select_button.pack(pady=10)  # Added update_selected_node method to combobox binding, seems redundant
 
-        self.refresh_button = ttk.Button(self.master, text="Refresh Status", command=self.update_device_status)
-        self.refresh_button.pack(pady=10)
+        # self.refresh_button = ttk.Button(self.master, text="Refresh Status", command=self.update_device_status)
+        # self.refresh_button.pack(pady=10)
 
         self.remove_button = ttk.Button(self.master, text="Remove Node", command=self.remove_selected_node)
         self.remove_button.pack(pady=10)
@@ -53,12 +63,34 @@ class App:
         self.eui_label = tk.Label(self.master, text="Device EUI: ")
         self.eui_label.pack(pady=10)
 
+        self.status_request_button = ttk.Button(self.master, text="Status Request", command=self.send_status_request)
+        self.status_request_button.pack(pady=10)
+        self.reset_request_button = ttk.Button(self.master, text="Reset Request", command=self.send_reset_request)
+        self.reset_request_button.pack(pady=10)
+        self.data_collection_button = ttk.Button(self.master, text="Data Collection Trigger",
+                                                 command=self.send_data_collection_request)
+        self.data_collection_button.pack(pady=10)
+
+        # Disable buttons initially
+        self.status_request_button.config(state=tk.DISABLED)
+        self.reset_request_button.config(state=tk.DISABLED)
+        self.data_collection_button.config(state=tk.DISABLED)
+
         self.device_status_panel = tk.Frame(self.master)
         self.device_status_panel.pack(fill='both', expand=True)
 
         self.device_list = tk.Listbox(self.device_status_panel)
         self.device_list.pack(fill='both', expand=True)
 
+    def enable_command_buttons(self):
+        self.status_request_button.config(state=tk.NORMAL)
+        self.reset_request_button.config(state=tk.NORMAL)
+        self.data_collection_button.config(state=tk.NORMAL)
+
+    def disable_command_buttons(self):
+        self.status_request_button.config(state=tk.DISABLED)
+        self.reset_request_button.config(state=tk.DISABLED)
+        self.data_collection_button.config(state=tk.DISABLED)
 
     def update_selected_node(self, event):
         selected_device_name = self.device_var.get()
@@ -66,9 +98,11 @@ class App:
             (node for node in self.node_manager.get_all_nodes() if str(node) == selected_device_name), None)
         if self.selected_node:
             self.eui_label.config(text=f"Device EUI: {self.selected_node.dev_eui}")
-            self.update_device_status()  # Automatically refresh status when a device is selected
+            # self.update_device_status()  # Automatically refresh status when a device is selected
+            self.enable_command_buttons()
         else:
             self.eui_label.config(text="Device EUI: Not available")
+            self.disable_command_buttons()  # Disable command buttons if no valid selection
 
     def select_device(self):
         if self.selected_node:
@@ -146,52 +180,130 @@ class App:
             error_details = e.details() if e.details() else "Unknown error"
             messagebox.showerror("Error", f"Failed to add node: {error_details}")
 
-    def display_device_status(self, device):
-        self.device_list.delete(0, tk.END)
-        status_info = self.chirpstack_client.get_device_status(device.dev_eui)
-        is_online = status_info.get('is_online', False)
-        last_seen = status_info.get('last_seen', 'Unknown')
+    # def display_device_status(self, device):
+    #     self.device_list.delete(0, tk.END)
+    #     status_info = self.chirpstack_client.get_device_status(device.dev_eui)
+    #     is_online = status_info.get('is_online', False)
+    #     last_seen = status_info.get('last_seen', 'Unknown')
+    #
+    #     print(f"Device {device.dev_eui} status info: {status_info}")
+    #
+    #     metrics = {}
+    #     if is_online:
+    #         metrics_resp = self.chirpstack_client.get_device_link_metrics(device.dev_eui)
+    #         print(f"Device {device.dev_eui} metrics: {metrics_resp}")
+    #         if metrics_resp:
+    #             metrics['rssi'] = metrics_resp.get('gw_rssi', 'N/A')
+    #             metrics['snr'] = metrics_resp.get('gw_snr', 'N/A')
+    #             metrics['errors'] = metrics_resp.get('errors', 'N/A')
+    #             metrics['rx_packets'] = metrics_resp.get('rx_packets', 'N/A')
+    #
+    #     status = f"{device.name}: {'Online' if is_online else 'Offline'}, Last seen: {last_seen}"
+    #     if is_online:
+    #         status += f", RSSI: {metrics.get('rssi', 'N/A')}, SNR: {metrics.get('snr', 'N/A')}"
+    #     print(f"Displaying status: {status}")
+    #     self.device_list.insert(tk.END, status)
+    #
+    # def alert_user(self, message):
+    #     messagebox.showwarning("Alert", message)
+    #
+    # def update_device_status(self):
+    #     if not self.selected_node:
+    #         return  # Do not proceed if no device is selected
+    #
+    #     def fetch_and_update():
+    #         try:
+    #             device = self.selected_node
+    #             self.display_device_status(device)
+    #         except grpc.RpcError as e:
+    #             self.alert_user(f"Failed to update device status: {e.details()}")
+    #
+    #     threading.Thread(target=fetch_and_update).start()
 
-        # Fetch additional metrics if the device is online
-        metrics = {}
-        # is_online = 1  # For testing
-        if is_online:
-            metrics_resp = self.chirpstack_client.get_device_link_metrics(device.dev_eui)
-            if metrics_resp:
-                metrics['rssi'] = metrics_resp.gw_rssi
-                metrics['snr'] = metrics_resp.gw_snr
-                metrics['errors'] = metrics_resp.errors
-                metrics['rx_packets'] = metrics_resp.rx_packets
+    # def start_periodic_refresh(self, interval_ms=60000):
+    #     """Starts periodic refresh of device status every `interval_ms` milliseconds."""
+    #
+    #     def refresh():
+    #         if self.selected_node:
+    #             self.update_device_status()
+    #         self.master.after(interval_ms, refresh)
+    #
+    #     # Start the refresh loop
+    #     refresh()
 
-        status = f"{device.name}: {'Online' if is_online else 'Offline'}, Last seen: {last_seen}"
-        if is_online:
-            status += f", RSSI: {metrics.get('rssi', 'N/A')}, SNR: {metrics.get('snr', 'N/A')}"
-        self.device_list.insert(tk.END, status)
-
-    def alert_user(self, message):
-        messagebox.showwarning("Alert", message)
-
-    def update_device_status(self):
+    def send_status_request(self):
         if not self.selected_node:
-            return  # Do not proceed if no device is selected
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+        data = COMMANDS["STATUS_REQUEST"]  # Status Request
+        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
+        messagebox.showinfo("Downlink Status", message)
 
-        def fetch_and_update():
-            try:
-                device = self.selected_node
-                self.display_device_status(device)
-            except grpc.RpcError as e:
-                self.alert_user(f"Failed to update device status: {e.details()}")
+    def send_reset_request(self):
+        if not self.selected_node:
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+        data = COMMANDS["RESET_REQUEST"]  # Reset Request
+        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
+        messagebox.showinfo("Downlink Status", message)
 
-        threading.Thread(target=fetch_and_update).start()
+    def send_data_collection_request(self):
+        if not self.selected_node:
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+        data = COMMANDS["DATA_COLLECTION_REQUEST"]  # Data Collection Trigger (LIDAR Reading)
+        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
+        messagebox.showinfo("Downlink Status", message)
 
-    def start_periodic_refresh(self, interval_ms=60000):
-        """Starts periodic refresh of device status every `interval_ms` milliseconds."""
+    def on_connect(self, client, userdata, flags, rc):
+        print(f"Connected with result code {rc}")
+        # Subscribe to the relevant topics
+        client.subscribe("application/+/device/+/event/up")
+        client.subscribe("application/+/device/+/event/join")
+        client.subscribe("application/+/device/+/event/status")
 
-        def refresh():
-            if self.selected_node:
-                self.update_device_status()
-            self.master.after(interval_ms, refresh)
+    def on_message(self, client, userdata, msg):
+        topic = msg.topic
+        payload = msg.payload.decode('utf-8')
+        data = json.loads(payload)
+        event_type = topic.split('/')[-1]
 
-        # Start the refresh loop
-        refresh()
+        if event_type == "up":
+            self.handle_uplink(data)
+        elif event_type == "join":
+            self.handle_join(data)
+        elif event_type == "status":
+            self.handle_status(data)
 
+    def handle_uplink(self, data):
+        device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
+        event_time = data.get('time', 'Unknown time')
+        message = data.get('object', {}).get('message', 'No message')
+        rssi = data['rxInfo'][0]['rssi'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
+        snr = data['rxInfo'][0]['snr'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
+
+        event_info = f"Uplink - Device: {device_name}, Time: {event_time}, RSSI: {rssi}, SNR: {snr}, Message: {message}"
+        self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def handle_join(self, data):
+        device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
+        dev_eui = data['deviceInfo'].get('devEui', 'Unknown DevEUI')
+
+        event_info = f"Join - Device: {device_name}, DevEUI: {dev_eui}"
+        self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def handle_status(self, data):
+        device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
+        margin = data.get('margin', 'N/A')
+        battery = data.get('batteryLevel', 'N/A')
+        external_power = data.get('externalPowerSource', False)
+        last_seen = data.get('lastSeenAt', 'N/A')
+
+        event_info = f"Status - Device: {device_name}, Margin: {margin}, Battery: {battery}, External Power: {external_power}, Last Seen: {last_seen}"
+        self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def add_event_to_listbox(self, event_info):
+        self.device_list.insert(tk.END, event_info)
+
+    def show_alert(self, title, message):
+        self.master.after(0, lambda: messagebox.showwarning(title, message))
