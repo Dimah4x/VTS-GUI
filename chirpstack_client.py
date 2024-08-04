@@ -36,30 +36,24 @@ class ChirpStackClient:
         req = api.DeleteDeviceRequest(dev_eui=dev_eui)
         client.Delete(req, metadata=auth_token)
 
-    def add_device(self, dev_eui, name, device_profile_id, application_id, nwk_key, description=""):
+    def add_device(self, dev_eui, name, device_profile_id, application_id, nwk_key, device_type):
         device = api.Device(
             dev_eui=dev_eui,
             name=name,
-            device_profile_id=device_profile_id,
+            description=device_type,  # Set the description to device type
             application_id=application_id,
-            description=description,
-            is_disabled=False,
-            skip_fcnt_check=False,
-            join_eui="0000000000000000"  # Default Join EUI, adjust if needed
+            device_profile_id=device_profile_id
         )
-
         req = api.CreateDeviceRequest(device=device)
-        auth_token = self._get_metadata()
-        self.device_service.Create(req, metadata=auth_token)
+        self.device_service.Create(req, metadata=self._get_metadata())
 
-        # Set the NwkKey only
         keys_req = api.CreateDeviceKeysRequest(
             device_keys=api.DeviceKeys(
                 dev_eui=dev_eui,
                 nwk_key=nwk_key
             )
         )
-        self.device_service.CreateKeys(keys_req, metadata=auth_token)
+        self.device_service.CreateKeys(keys_req, metadata=self._get_metadata())
 
     def get_device_profiles(self, tenant_id):
         req = api.ListDeviceProfilesRequest(

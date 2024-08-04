@@ -8,8 +8,15 @@ import threading
 from command_dict import COMMANDS
 import paho.mqtt.client as mqtt
 import json
+from datetime import datetime
 
-
+DEVICE_TYPES = [
+    "LiDAR unit",
+    "LiDAR Simulated Unit",
+    "Sound Unit",
+    "Wearable Alert Unit",
+    "Blank Unit"
+]
 
 class App:
     def __init__(self, master, devices, chirpstack_client, app_id, tenant_id):
@@ -30,6 +37,10 @@ class App:
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.connect("192.168.1.131", 1883, 60)
         self.mqtt_client.loop_start()
+        self.log_file = "events_log.txt"
+        self.start_logging()
+
+        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def fetch_device_profiles(self):
         try:
@@ -47,12 +58,6 @@ class App:
         self.device_dropdown.pack(pady=10)
 
         self.device_dropdown.bind("<<ComboboxSelected>>", self.update_selected_node)
-        # self.device_dropdown.bind("<<ComboboxSelected>>", lambda event: self.update_selected_node(event))
-        # self.select_button = ttk.Button(self.master, text="Select Device", command=self.select_device)
-        # self.select_button.pack(pady=10)  # Added update_selected_node method to combobox binding, seems redundant
-
-        # self.refresh_button = ttk.Button(self.master, text="Refresh Status", command=self.update_device_status)
-        # self.refresh_button.pack(pady=10)
 
         self.remove_button = ttk.Button(self.master, text="Remove Node", command=self.remove_selected_node)
         self.remove_button.pack(pady=10)
@@ -62,6 +67,9 @@ class App:
 
         self.eui_label = tk.Label(self.master, text="Device EUI: ")
         self.eui_label.pack(pady=10)
+
+        self.device_type_label = tk.Label(self.master, text="Device Type: Not available")
+        self.device_type_label.pack(pady=5)
 
         self.status_request_button = ttk.Button(self.master, text="Status Request", command=self.send_status_request)
         self.status_request_button.pack(pady=10)
@@ -98,11 +106,12 @@ class App:
             (node for node in self.node_manager.get_all_nodes() if str(node) == selected_device_name), None)
         if self.selected_node:
             self.eui_label.config(text=f"Device EUI: {self.selected_node.dev_eui}")
-            # self.update_device_status()  # Automatically refresh status when a device is selected
+            self.device_type_label.config(text=f"Device Type: {self.selected_node.device_type}")
             self.enable_command_buttons()
         else:
             self.eui_label.config(text="Device EUI: Not available")
-            self.disable_command_buttons()  # Disable command buttons if no valid selection
+            self.device_type_label.config(text="Device Type: Not available")
+            self.disable_command_buttons()
 
     def select_device(self):
         if self.selected_node:
@@ -141,9 +150,11 @@ class App:
         self.name_entry = tk.Entry(self.add_node_window)
         self.name_entry.grid(row=1, column=1, pady=5, padx=5)
 
-        tk.Label(self.add_node_window, text="Description (Optional):").grid(row=2, column=0, pady=5, padx=5)
-        self.description_entry = tk.Entry(self.add_node_window)
-        self.description_entry.grid(row=2, column=1, pady=5, padx=5)
+        tk.Label(self.add_node_window, text="Device Type:").grid(row=2, column=0, pady=5, padx=5)
+        self.device_type_var = tk.StringVar()
+        self.device_type_dropdown = ttk.Combobox(self.add_node_window, textvariable=self.device_type_var)
+        self.device_type_dropdown['values'] = DEVICE_TYPES
+        self.device_type_dropdown.grid(row=2, column=1, pady=5, padx=5)
 
         tk.Label(self.add_node_window, text="Device Profile:").grid(row=3, column=0, pady=5, padx=5)
         self.device_profile_var = tk.StringVar()
@@ -155,25 +166,24 @@ class App:
         self.nwk_key_entry = tk.Entry(self.add_node_window)
         self.nwk_key_entry.grid(row=4, column=1, pady=5, padx=5)
 
-        ttk.Button(self.add_node_window, text="Add Node", command=self.add_node).grid(row=5, column=0, columnspan=2,
-                                                                                      pady=10)
+        ttk.Button(self.add_node_window, text="Add Node", command=self.add_node).grid(row=5, column=0, columnspan=2, pady=10)
 
     def add_node(self):
         dev_eui = self.dev_eui_entry.get()
         name = self.name_entry.get()
-        description = self.description_entry.get()
+        device_type = self.device_type_var.get()
         selected_profile_name = self.device_profile_var.get()
         device_profile_id = next((id for id, name in self.device_profiles if name == selected_profile_name), None)
         nwk_key = self.nwk_key_entry.get()
 
-        if not dev_eui or not name or not device_profile_id or not nwk_key:
-            messagebox.showerror("Error", "Device EUI, Name, Device Profile ID, and NwkKey are required.")
+        if not dev_eui or not name or not device_profile_id or not nwk_key or not device_type:
+            messagebox.showerror("Error", "Device EUI, Name, Device Type, Device Profile ID, and NwkKey are required.")
             return
 
         try:
-            self.chirpstack_client.add_device(dev_eui, name, device_profile_id, self.app_id, nwk_key, description)
+            self.chirpstack_client.add_device(dev_eui, name, device_profile_id, self.app_id, nwk_key, device_type)
             messagebox.showinfo("Success", "Node added successfully!")
-            self.node_manager.add_node(EndNode(dev_eui, name))
+            self.node_manager.add_node(EndNode(dev_eui, name, device_type))
             self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
             self.add_node_window.destroy()
         except grpc.RpcError as e:
@@ -231,36 +241,35 @@ class App:
     #     # Start the refresh loop
     #     refresh()
 
-    def send_status_request(self):
-        if not self.selected_node:
-            messagebox.showwarning("No Device Selected", "Please select a device first.")
-            return
-        data = COMMANDS["STATUS_REQUEST"]  # Status Request
-        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
-        messagebox.showinfo("Downlink Status", message)
+    def get_time(self):
+        return datetime.now().strftime("%Y-%m-%d, %H:%M:%S")
 
-    def send_reset_request(self):
-        if not self.selected_node:
-            messagebox.showwarning("No Device Selected", "Please select a device first.")
-            return
-        data = COMMANDS["RESET_REQUEST"]  # Reset Request
-        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
-        messagebox.showinfo("Downlink Status", message)
+    def start_logging(self):
+        with open(self.log_file, "a") as f:
+            start_time = self.get_time()
+            f.write(f"Application started at: {start_time}\n")
 
-    def send_data_collection_request(self):
-        if not self.selected_node:
-            messagebox.showwarning("No Device Selected", "Please select a device first.")
-            return
-        data = COMMANDS["DATA_COLLECTION_REQUEST"]  # Data Collection Trigger (LIDAR Reading)
-        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
-        messagebox.showinfo("Downlink Status", message)
+    def log_event(self, event_info):
+        with open(self.log_file, "a") as f:
+            f.write(event_info + "\n")
+
+    def on_closing(self):
+        with open(self.log_file, "a") as f:
+            close_time = self.get_time()
+            f.write(f"Application closed at: {close_time}\n")
+            # f.write("Listbox content:\n")
+            # for event in self.device_list.get(0, tk.END):
+            #     f.write(event + "\n")
+        self.master.destroy()
 
     def on_connect(self, client, userdata, flags, rc):
         print(f"Connected with result code {rc}")
-        # Subscribe to the relevant topics
         client.subscribe("application/+/device/+/event/up")
         client.subscribe("application/+/device/+/event/join")
         client.subscribe("application/+/device/+/event/status")
+        client.subscribe("application/+/device/+/event/ack")
+        client.subscribe("application/+/device/+/event/txack")
+        client.subscribe("application/+/device/+/event/log")
 
     def on_message(self, client, userdata, msg):
         topic = msg.topic
@@ -274,22 +283,29 @@ class App:
             self.handle_join(data)
         elif event_type == "status":
             self.handle_status(data)
+        elif event_type == "ack":
+            self.handle_ack(data)
+        elif event_type == "txack":
+            self.handle_txack(data)
+        elif event_type == "log":
+            self.handle_log(data)
 
     def handle_uplink(self, data):
         device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
-        event_time = data.get('time', 'Unknown time')
         message = data.get('object', {}).get('message', 'No message')
         rssi = data['rxInfo'][0]['rssi'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
         snr = data['rxInfo'][0]['snr'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
 
-        event_info = f"Uplink - Device: {device_name}, Time: {event_time}, RSSI: {rssi}, SNR: {snr}, Message: {message}"
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - Uplink - Device: {device_name}, RSSI: {rssi}, SNR: {snr}, Message: {message}"
         self.master.after(0, lambda: self.add_event_to_listbox(event_info))
 
     def handle_join(self, data):
         device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
         dev_eui = data['deviceInfo'].get('devEui', 'Unknown DevEUI')
 
-        event_info = f"Join - Device: {device_name}, DevEUI: {dev_eui}"
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - Join - Device: {device_name}, DevEUI: {dev_eui}"
         self.master.after(0, lambda: self.add_event_to_listbox(event_info))
 
     def handle_status(self, data):
@@ -299,11 +315,73 @@ class App:
         external_power = data.get('externalPowerSource', False)
         last_seen = data.get('lastSeenAt', 'N/A')
 
-        event_info = f"Status - Device: {device_name}, Margin: {margin}, Battery: {battery}, External Power: {external_power}, Last Seen: {last_seen}"
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - Status - Device: {device_name}, Margin: {margin}, Battery: {battery}, External Power: {external_power}, Last Seen: {last_seen}"
         self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def handle_ack(self, data):
+        device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
+        acknowledged = data.get('acknowledged', False)
+
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - ACK - Device: {device_name}, Acknowledged: {acknowledged}"
+        self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def handle_txack(self, data):
+        device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
+
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - TXACK - Device: {device_name}"
+        self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def handle_log(self, data):
+        device_name = data['deviceInfo'].get('deviceName', 'Unknown device')
+        log_message = data.get('message', 'No message')
+        level = data.get('level', 'Unknown level')
+
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - Log - Device: {device_name}, Level: {level}, Message: {log_message}"
+        self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+    def send_status_request(self):
+        if not self.selected_node:
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+        data = COMMANDS["STATUS_REQUEST"]  # Status Request
+        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
+        if success:
+            self.log_and_display_downlink(self.selected_node.name, self.selected_node.dev_eui, data, "Status Request")
+        messagebox.showinfo("Downlink Status", message)
+
+    def send_reset_request(self):
+        if not self.selected_node:
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+        data = COMMANDS["RESET_REQUEST"]  # Reset Request
+        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
+        if success:
+            self.log_and_display_downlink(self.selected_node.name, self.selected_node.dev_eui, data, "Reset Request")
+        messagebox.showinfo("Downlink Status", message)
+
+    def send_data_collection_request(self):
+        if not self.selected_node:
+            messagebox.showwarning("No Device Selected", "Please select a device first.")
+            return
+        data = COMMANDS["DATA_COLLECTION_REQUEST"]  # Data Collection Trigger (LIDAR Reading)
+        success, message = self.chirpstack_client.enqueue_downlink(self.selected_node.dev_eui, data)
+        if success:
+            self.log_and_display_downlink(self.selected_node.name, self.selected_node.dev_eui, data,
+                                          "Data Collection Request")
+        messagebox.showinfo("Downlink Status", message)
+
+    def log_and_display_downlink(self, device_name, dev_eui, bytes_data, command):
+        timestamp = self.get_time()
+        event_info = f"{timestamp} - Downlink sent to device {device_name} - {dev_eui}, {bytes_data} - {command}"
+        self.add_event_to_listbox(event_info)
 
     def add_event_to_listbox(self, event_info):
         self.device_list.insert(tk.END, event_info)
+        self.log_event(event_info)
 
     def show_alert(self, title, message):
         self.master.after(0, lambda: messagebox.showwarning(title, message))
