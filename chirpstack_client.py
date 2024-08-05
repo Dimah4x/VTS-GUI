@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from google.protobuf.timestamp_pb2 import Timestamp
 
 
+
 class ChirpStackClient:
     def __init__(self, server, api_token):
         self.server = server
@@ -35,30 +36,24 @@ class ChirpStackClient:
         req = api.DeleteDeviceRequest(dev_eui=dev_eui)
         client.Delete(req, metadata=auth_token)
 
-    def add_device(self, dev_eui, name, device_profile_id, application_id, nwk_key, description=""):
+    def add_device(self, dev_eui, name, device_profile_id, application_id, nwk_key, device_type):
         device = api.Device(
             dev_eui=dev_eui,
             name=name,
-            device_profile_id=device_profile_id,
+            description=device_type,  # Set the description to device type
             application_id=application_id,
-            description=description,
-            is_disabled=False,
-            skip_fcnt_check=False,
-            join_eui="0000000000000000"  # Default Join EUI, adjust if needed
+            device_profile_id=device_profile_id
         )
-
         req = api.CreateDeviceRequest(device=device)
-        auth_token = self._get_metadata()
-        self.device_service.Create(req, metadata=auth_token)
+        self.device_service.Create(req, metadata=self._get_metadata())
 
-        # Set the NwkKey only
         keys_req = api.CreateDeviceKeysRequest(
             device_keys=api.DeviceKeys(
                 dev_eui=dev_eui,
                 nwk_key=nwk_key
             )
         )
-        self.device_service.CreateKeys(keys_req, metadata=auth_token)
+        self.device_service.CreateKeys(keys_req, metadata=self._get_metadata())
 
     def get_device_profiles(self, tenant_id):
         req = api.ListDeviceProfilesRequest(
@@ -69,50 +64,55 @@ class ChirpStackClient:
         resp = self.device_profile_service.List(req, metadata=auth_token)
         return resp.result
 
-    def get_device_status(self, dev_eui):
+    def get_device_status(self, dev_eui, application_id):
         try:
-            req = api.GetDeviceRequest(dev_eui=dev_eui)
-            resp = self.device_service.Get(req, metadata=self._get_metadata())
-            device = resp.device
+            devices = self.list_devices(application_id)
+            device = next((d for d in devices if d.dev_eui == dev_eui), None)
 
-            # Accessing 'device_status' and 'last_seen_at' from DeviceListItem
-            last_seen_at = getattr(device, 'last_seen_at', None)
-            device_status = getattr(device, 'device_status', None)
-            is_online = device_status and device_status.status == 'ONLINE'
+            if device:
+                print(f"Device object: {device}")
+                last_seen = device.last_seen_at
+                if last_seen:
+                    last_seen_dt = datetime.fromtimestamp(last_seen.seconds)
+                    is_online = datetime.now() - last_seen_dt < timedelta(minutes=10)
+                else:
+                    last_seen_dt = "Unknown"
+                    is_online = False
 
-            # Convert last_seen_at from google.protobuf.Timestamp to a readable format
-            last_seen = 'Unknown'
-            if last_seen_at:
-                last_seen = datetime.fromtimestamp(last_seen_at.seconds).strftime('%Y-%m-%d %H:%M:%S')
-
-            return {
-                "is_online": is_online,
-                "last_seen": last_seen,
-            }
+                return {"last_seen": last_seen_dt, "is_online": is_online}
+            else:
+                print(f"No device found with dev_eui: {dev_eui}")
+                return {"last_seen": "Unknown", "is_online": False}
         except grpc.RpcError as e:
-            print(f"Error fetching device status for {dev_eui}: {e.details()}")
-            return {"is_online": False, "last_seen": "Unknown"}
+            print(f"Error getting device status for {dev_eui}: {e.details()}")
+            return {"last_seen": "Unknown", "is_online": False}
 
-    def get_device_link_metrics(self, dev_eui):
-        client = self.device_service
-        auth_token = self._get_metadata()
+    # def get_device_link_metrics(self, dev_eui):
+    #     client = self.device_service
+    #     auth_token = self._get_metadata()
+    #     req = api.GetDeviceLinkMetricsRequest(dev_eui=dev_eui)
+    #
+    #     try:
+    #         resp = client.GetLinkMetrics(req, metadata=auth_token)
+    #         metrics = {
+    #             "rssi": resp.rx_info[0].rssi if resp.rx_info else "N/A",
+    #             "snr": resp.rx_info[0].snr if resp.rx_info else "N/A",
+    #         }
+    #         return metrics
+    #     except grpc.RpcError as e:
+    #         print(f"Error fetching device link metrics for {dev_eui}: {e.details()}")
+    #         return {}
 
-        # Define the end time as now and the start time as 24 hours before
-        end_time = Timestamp()
-        end_time.GetCurrentTime()
-
-        start_time = Timestamp()
-        start_time.FromDatetime(datetime.utcnow() - timedelta(days=1))
-
-        req = api.GetDeviceLinkMetricsRequest(
-            dev_eui=dev_eui,
-            start=start_time,
-            end=end_time
-        )
+    def enqueue_downlink(self, dev_eui, data, confirmed=True, f_port=10):
+        """Enqueue a downlink message to a device."""
+        req = api.EnqueueDeviceQueueItemRequest()
+        req.queue_item.confirmed = confirmed
+        req.queue_item.data = data
+        req.queue_item.dev_eui = dev_eui
+        req.queue_item.f_port = f_port
 
         try:
-            resp = client.GetLinkMetrics(req, metadata=auth_token)
-            return resp  # Assuming resp contains the metrics data
+            self.device_service.Enqueue(req, metadata=self._get_metadata())
+            return True, "Command enqueued successfully."
         except grpc.RpcError as e:
-            print(f"Error fetching device metrics for {dev_eui}: {e.details()}")
-            return None
+            return False, f"Failed to enqueue command: {e.details()}"
