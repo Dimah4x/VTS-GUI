@@ -64,33 +64,44 @@ class ChirpStackClient:
         resp = self.device_profile_service.List(req, metadata=auth_token)
         return resp.result
 
-    # def get_device_status(self, dev_eui):
-    #     try:
-    #         req = api.GetDeviceRequest(dev_eui=dev_eui)
-    #         resp = self.device_service.Get(req, metadata=self._get_metadata())
-    #         device = resp.device
-    #         print(f"Device object: {device}")
-    #         last_seen = device.updated_at  # Assuming updated_at can be used for last_seen
-    #         is_online = device.device_status.battery_level > 0  # Assuming battery_level > 0 indicates online status
-    #         return {"last_seen": last_seen, "is_online": is_online}
-    #     except grpc.RpcError as e:
-    #         print(f"Error getting device status for {dev_eui}: {e.details()}")
-    #         return {"last_seen": "Unknown", "is_online": False}
-    #
+    def get_device_status(self, dev_eui, application_id):
+        try:
+            devices = self.list_devices(application_id)
+            device = next((d for d in devices if d.dev_eui == dev_eui), None)
+
+            if device:
+                print(f"Device object: {device}")
+                last_seen = device.last_seen_at
+                if last_seen:
+                    last_seen_dt = datetime.fromtimestamp(last_seen.seconds)
+                    is_online = datetime.now() - last_seen_dt < timedelta(minutes=10)
+                else:
+                    last_seen_dt = "Unknown"
+                    is_online = False
+
+                return {"last_seen": last_seen_dt, "is_online": is_online}
+            else:
+                print(f"No device found with dev_eui: {dev_eui}")
+                return {"last_seen": "Unknown", "is_online": False}
+        except grpc.RpcError as e:
+            print(f"Error getting device status for {dev_eui}: {e.details()}")
+            return {"last_seen": "Unknown", "is_online": False}
+
     # def get_device_link_metrics(self, dev_eui):
+    #     client = self.device_service
+    #     auth_token = self._get_metadata()
+    #     req = api.GetDeviceLinkMetricsRequest(dev_eui=dev_eui)
+    #
     #     try:
-    #         req = api.GetDeviceLinkMetricsRequest(dev_eui=dev_eui)
-    #         resp = self.device_service.GetLinkMetrics(req, metadata=self._get_metadata())
-    #         print(f"Device {dev_eui} link metrics: {resp}")
-    #         return {
-    #             "gw_rssi": resp.rx_packets[0].rssi,
-    #             "gw_snr": resp.rx_packets[0].snr,
-    #             "errors": resp.errors,
-    #             "rx_packets": resp.rx_packets
+    #         resp = client.GetLinkMetrics(req, metadata=auth_token)
+    #         metrics = {
+    #             "rssi": resp.rx_info[0].rssi if resp.rx_info else "N/A",
+    #             "snr": resp.rx_info[0].snr if resp.rx_info else "N/A",
     #         }
+    #         return metrics
     #     except grpc.RpcError as e:
-    #         print(f"Error getting device link metrics for {dev_eui}: {e.details()}")
-    #         return None
+    #         print(f"Error fetching device link metrics for {dev_eui}: {e.details()}")
+    #         return {}
 
     def enqueue_downlink(self, dev_eui, data, confirmed=True, f_port=10):
         """Enqueue a downlink message to a device."""

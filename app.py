@@ -29,7 +29,7 @@ class App:
         self.app_id = app_id  # Store App ID from configuration
         self.tenant_id = tenant_id  # Store Tenant ID from configuration
         self.device_profiles = self.fetch_device_profiles()
-        # self.start_periodic_refresh(interval_ms=60000)  # Refresh every 60 seconds
+        self.start_periodic_refresh()  # Refresh every 30 seconds
         self.create_widgets()
         # Set up MQTT client
         self.mqtt_client = mqtt.Client()
@@ -50,45 +50,98 @@ class App:
             messagebox.showerror("Error", f"Failed to fetch device profiles: {e.details()}")
             return []
 
+    def start_periodic_refresh(self, interval_ms=30000):
+        """Starts periodic refresh of device data every `interval_ms` milliseconds."""
+        self.refresh_timer = self.master.after(interval_ms, self.refresh_device_status)
+
+    def refresh_device_status(self):
+        if self.selected_node:
+            self.update_selected_node(self)
+        self.start_periodic_refresh()  # Restart the timer after refreshing
+
     def create_widgets(self):
-        tk.Label(self.master, text="Select Connected Device:").pack(pady=10)
+        # Layout Configuration
+        self.master.grid_rowconfigure(0, weight=1)
+        self.master.grid_rowconfigure(1, weight=1)
+        self.master.grid_rowconfigure(2, weight=3)
+        self.master.grid_columnconfigure(0, weight=1)
+        self.master.grid_columnconfigure(1, weight=1)
+        self.master.grid_columnconfigure(2, weight=1)
+
+        # Widgets Configuration
+        tk.Label(self.master, text="Select Node").grid(row=0, column=0, pady=10)
         self.device_var = tk.StringVar()
         self.device_dropdown = ttk.Combobox(self.master, textvariable=self.device_var)
         self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
-        self.device_dropdown.pack(pady=10)
+        self.device_dropdown.grid(row=0, column=1, pady=10, columnspan=2, sticky="ew")
 
         self.device_dropdown.bind("<<ComboboxSelected>>", self.update_selected_node)
 
-        self.remove_button = ttk.Button(self.master, text="Remove Node", command=self.remove_selected_node)
-        self.remove_button.pack(pady=10)
+        # Node Data
+        node_data_frame = tk.Frame(self.master)
+        node_data_frame.grid(row=1, column=0, padx=10, pady=10, sticky="n")
 
-        self.add_button = ttk.Button(self.master, text="Add Node", command=self.open_add_node_dialog)
-        self.add_button.pack(pady=10)
+        tk.Label(node_data_frame, text="Node Data", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=2)
 
-        self.eui_label = tk.Label(self.master, text="Device EUI: ")
-        self.eui_label.pack(pady=10)
+        self.name_label = tk.Label(node_data_frame, text="Name: ")
+        self.name_label.grid(row=1, column=0, sticky="w")
 
-        self.device_type_label = tk.Label(self.master, text="Device Type: Not available")
-        self.device_type_label.pack(pady=5)
+        self.eui_label = tk.Label(node_data_frame, text="Dev EUI: ")
+        self.eui_label.grid(row=2, column=0, sticky="w")
 
-        self.status_request_button = ttk.Button(self.master, text="Status Request", command=self.send_status_request)
-        self.status_request_button.pack(pady=10)
-        self.reset_request_button = ttk.Button(self.master, text="Reset Request", command=self.send_reset_request)
-        self.reset_request_button.pack(pady=10)
-        self.data_collection_button = ttk.Button(self.master, text="Data Collection Trigger",
+        self.device_type_label = tk.Label(node_data_frame, text="Unit Type: ")
+        self.device_type_label.grid(row=3, column=0, sticky="w")
+
+        # self.rssi_label = tk.Label(node_data_frame, text="RSSI: ")
+        # self.rssi_label.grid(row=4, column=0, sticky="w")
+        #
+        # self.snr_label = tk.Label(node_data_frame, text="SNR: ")
+        # self.snr_label.grid(row=5, column=0, sticky="w")
+
+        self.online_label = tk.Label(node_data_frame, text="Online: ")
+        self.online_label.grid(row=6, column=0, sticky="w")
+
+        self.last_seen_label = tk.Label(node_data_frame, text="Last Seen at: ")
+        self.last_seen_label.grid(row=7, column=0, sticky="w")
+
+        # Buttons
+        button_frame = tk.Frame(self.master)
+        button_frame.grid(row=1, column=1, columnspan=2, padx=10, pady=10, sticky="n")
+
+        self.status_request_button = ttk.Button(button_frame, text="Status Request", command=self.send_status_request)
+        self.status_request_button.grid(row=0, column=0, padx=5, pady=5)
+
+        self.reset_request_button = ttk.Button(button_frame, text="Reset Request", command=self.send_reset_request)
+        self.reset_request_button.grid(row=0, column=1, padx=5, pady=5)
+
+        self.data_collection_button = ttk.Button(button_frame, text="Data Collection",
                                                  command=self.send_data_collection_request)
-        self.data_collection_button.pack(pady=10)
+        self.data_collection_button.grid(row=0, column=2, padx=5, pady=5)
+
+        self.add_button = ttk.Button(button_frame, text="Add Node", command=self.open_add_node_dialog)
+        self.add_button.grid(row=1, column=0, padx=5, pady=5)
+
+        self.remove_button = ttk.Button(button_frame, text="Remove Node", command=self.remove_selected_node)
+        self.remove_button.grid(row=1, column=1, padx=5, pady=5)
+
+        # Alerts Listbox
+        alert_frame = tk.Frame(self.master)
+        alert_frame.grid(row=1, column=3, rowspan=4, padx=10, pady=10)
+
+        tk.Label(alert_frame, text="Alerts").pack()
+        self.alert_listbox = tk.Listbox(alert_frame, width=30, height=20)
+        self.alert_listbox.pack(expand=True)
+
+        # Log Listbox
+        log_frame = tk.Frame(self.master)
+        log_frame.grid(row=2, column=0, columnspan=4, padx=10, pady=10, sticky="ew")
+
+        tk.Label(log_frame, text="Log", font=("Arial", 12, "bold")).pack()
+        self.log_listbox = tk.Listbox(log_frame, width=100, height=10)
+        self.log_listbox.pack(fill="both", expand=True)
 
         # Disable buttons initially
-        self.status_request_button.config(state=tk.DISABLED)
-        self.reset_request_button.config(state=tk.DISABLED)
-        self.data_collection_button.config(state=tk.DISABLED)
-
-        self.device_status_panel = tk.Frame(self.master)
-        self.device_status_panel.pack(fill='both', expand=True)
-
-        self.device_list = tk.Listbox(self.device_status_panel)
-        self.device_list.pack(fill='both', expand=True)
+        self.disable_command_buttons()
 
     def enable_command_buttons(self):
         self.status_request_button.config(state=tk.NORMAL)
@@ -105,12 +158,24 @@ class App:
         self.selected_node = next(
             (node for node in self.node_manager.get_all_nodes() if str(node) == selected_device_name), None)
         if self.selected_node:
-            self.eui_label.config(text=f"Device EUI: {self.selected_node.dev_eui}")
-            self.device_type_label.config(text=f"Device Type: {self.selected_node.device_type}")
+            self.name_label.config(text=f"Name: {self.selected_node.name}")
+            self.eui_label.config(text=f"Dev EUI: {self.selected_node.dev_eui}")
+            self.device_type_label.config(text=f"Unit Type: {self.selected_node.device_type}")
+            status_info = self.chirpstack_client.get_device_status(self.selected_node.dev_eui, self.app_id)
+            # metrics_info = self.chirpstack_client.get_device_link_metrics(self.selected_node.dev_eui)
+            # self.rssi_label.config(text=f"RSSI: {metrics_info.get('rssi', 'N/A')}")
+            # self.snr_label.config(text=f"SNR: {metrics_info.get('snr', 'N/A')}")
+            self.online_label.config(text=f"Online: {status_info.get('is_online', 'N/A')}")
+            self.last_seen_label.config(text=f"Last Seen at: {status_info.get('last_seen', 'N/A')}")
             self.enable_command_buttons()
         else:
-            self.eui_label.config(text="Device EUI: Not available")
-            self.device_type_label.config(text="Device Type: Not available")
+            self.name_label.config(text="Name: ")
+            self.eui_label.config(text="Dev EUI: ")
+            self.device_type_label.config(text="Unit Type: ")
+            # self.rssi_label.config(text="RSSI: ")
+            # self.snr_label.config(text="SNR: ")
+            self.online_label.config(text="Online: ")
+            self.last_seen_label.config(text="Last Seen at: ")
             self.disable_command_buttons()
 
     def select_device(self):
@@ -127,11 +192,19 @@ class App:
                 try:
                     self.chirpstack_client.remove_device(self.selected_node.dev_eui)
                     self.node_manager.remove_node(self.selected_node.dev_eui)
-                    self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
+                    dev_eui = self.selected_node.dev_eui
+                    name = self.selected_node.name
+                    device_type = self.selected_node.device_type
                     self.selected_node = None
                     self.device_var.set('')
                     self.eui_label.config(text="Device EUI: Not available")
+                    self.device_type_label.config(text="Device Type: Not available")
                     messagebox.showinfo("Node Removed", "The node has been removed successfully.")
+
+                    # Log the node removal
+                    timestamp = self.get_time()
+                    event_info = f"{timestamp} Node successfully removed, dev eui - {dev_eui}, name - {name}, Node type - {device_type}"
+                    self.add_event_to_listbox(event_info)
                 except grpc.RpcError as e:
                     error_details = e.details() if e.details() else "Unknown error"
                     messagebox.showerror("Removal Error", f"Failed to remove node from server: {error_details}")
@@ -186,6 +259,11 @@ class App:
             self.node_manager.add_node(EndNode(dev_eui, name, device_type))
             self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
             self.add_node_window.destroy()
+
+            # Log the node addition
+            timestamp = self.get_time()
+            event_info = f"{timestamp} Node successfully added, dev eui - {dev_eui}, name - {name}, Node type - {device_type}"
+            self.add_event_to_listbox(event_info)
         except grpc.RpcError as e:
             error_details = e.details() if e.details() else "Unknown error"
             messagebox.showerror("Error", f"Failed to add node: {error_details}")
@@ -295,7 +373,10 @@ class App:
         message = data.get('object', {}).get('message', 'No message')
         rssi = data['rxInfo'][0]['rssi'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
         snr = data['rxInfo'][0]['snr'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
-
+        if "Alert" in message:
+            # self.show_alert("Alert", f"Alert triggered by device {device_name}!")
+            alert_info = f"Alert triggered by device {device_name} - {message}"
+            self.master.after(0, lambda: self.add_alert_to_listbox(alert_info))
         timestamp = self.get_time()
         event_info = f"{timestamp} - Uplink - Device: {device_name}, RSSI: {rssi}, SNR: {snr}, Message: {message}"
         self.master.after(0, lambda: self.add_event_to_listbox(event_info))
@@ -380,8 +461,12 @@ class App:
         self.add_event_to_listbox(event_info)
 
     def add_event_to_listbox(self, event_info):
-        self.device_list.insert(tk.END, event_info)
+        self.log_listbox.insert(tk.END, event_info)
         self.log_event(event_info)
+
+    def add_alert_to_listbox(self, alert):
+        self.alert_listbox.insert(tk.END, alert)
+        self.log_event(alert)
 
     def show_alert(self, title, message):
         self.master.after(0, lambda: messagebox.showwarning(title, message))

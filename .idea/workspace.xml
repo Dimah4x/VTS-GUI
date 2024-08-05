@@ -4,12 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="removed periodic refresh functuionallity, needs a bit more thinking&#10;implemented uplink handling with mqtt broker">
+    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function">
+      <change afterPath="$PROJECT_DIR$/events_log.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/chirpstack_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/chirpstack_client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/end_node.py" beforeDir="false" afterPath="$PROJECT_DIR$/end_node.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/node_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -213,7 +212,15 @@
       <option name="project" value="LOCAL" />
       <updated>1722790866219</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function">
+      <option name="closed" value="true" />
+      <created>1722806433552</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1722806433552</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -249,6 +256,7 @@
     <MESSAGE value="added some metric info when selecting node&#10;removed refresh button as it is now automatic when selecting node" />
     <MESSAGE value="added thread handling for periodic refresh functionality &#10;needed for sequential status updates" />
     <MESSAGE value="removed periodic refresh functuionallity, needs a bit more thinking&#10;implemented uplink handling with mqtt broker" />
-    <option name="LAST_COMMIT_MESSAGE" value="removed periodic refresh functuionallity, needs a bit more thinking&#10;implemented uplink handling with mqtt broker" />
+    <MESSAGE value="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function" />
   </component>
 </project>
