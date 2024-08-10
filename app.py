@@ -92,11 +92,11 @@ class App:
         self.device_type_label = tk.Label(node_data_frame, text="Unit Type: ")
         self.device_type_label.grid(row=3, column=0, sticky="w")
 
-        # self.rssi_label = tk.Label(node_data_frame, text="RSSI: ")
-        # self.rssi_label.grid(row=4, column=0, sticky="w")
-        #
-        # self.snr_label = tk.Label(node_data_frame, text="SNR: ")
-        # self.snr_label.grid(row=5, column=0, sticky="w")
+        self.rssi_label = tk.Label(node_data_frame, text="RSSI: ")
+        self.rssi_label.grid(row=4, column=0, sticky="w")
+
+        self.snr_label = tk.Label(node_data_frame, text="SNR: ")
+        self.snr_label.grid(row=5, column=0, sticky="w")
 
         self.online_label = tk.Label(node_data_frame, text="Online: ")
         self.online_label.grid(row=6, column=0, sticky="w")
@@ -175,8 +175,8 @@ class App:
             self.name_label.config(text="Name: ")
             self.eui_label.config(text="Dev EUI: ")
             self.device_type_label.config(text="Unit Type: ")
-            # self.rssi_label.config(text="RSSI: ")
-            # self.snr_label.config(text="SNR: ")
+            self.rssi_label.config(text="RSSI: ")
+            self.snr_label.config(text="SNR: ")
             self.online_label.config(text="Online: ")
             self.last_seen_label.config(text="Last Seen at: ")
             self.disable_command_buttons()
@@ -378,6 +378,8 @@ class App:
         message = data.get('object', {}).get('message', 'No message')
         rssi = data['rxInfo'][0]['rssi'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
         snr = data['rxInfo'][0]['snr'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
+        self.rssi_label.config(text=f"RSSI: {rssi}")
+        self.snr_label.config(text=f"SNR: {snr}")
 
         if "Alert" in message:
             alert_info = f"Alert triggered by device {device_name} - {message}"
