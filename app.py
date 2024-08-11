@@ -50,7 +50,7 @@ class App:
             messagebox.showerror("Error", f"Failed to fetch device profiles: {e.details()}")
             return []
 
-    def start_periodic_refresh(self, interval_ms=30000):
+    def start_periodic_refresh(self, interval_ms=10000):
         """Starts periodic refresh of device data every `interval_ms` milliseconds."""
         self.refresh_timer = self.master.after(interval_ms, self.refresh_device_status)
 
@@ -92,11 +92,11 @@ class App:
         self.device_type_label = tk.Label(node_data_frame, text="Unit Type: ")
         self.device_type_label.grid(row=3, column=0, sticky="w")
 
-        # self.rssi_label = tk.Label(node_data_frame, text="RSSI: ")
-        # self.rssi_label.grid(row=4, column=0, sticky="w")
-        #
-        # self.snr_label = tk.Label(node_data_frame, text="SNR: ")
-        # self.snr_label.grid(row=5, column=0, sticky="w")
+        self.rssi_label = tk.Label(node_data_frame, text="RSSI: ")
+        self.rssi_label.grid(row=4, column=0, sticky="w")
+
+        self.snr_label = tk.Label(node_data_frame, text="SNR: ")
+        self.snr_label.grid(row=5, column=0, sticky="w")
 
         self.online_label = tk.Label(node_data_frame, text="Online: ")
         self.online_label.grid(row=6, column=0, sticky="w")
@@ -143,6 +143,9 @@ class App:
         # Disable buttons initially
         self.disable_command_buttons()
 
+    def update_combobox(self):
+        self.device_dropdown['values'] = [str(node) for node in self.node_manager.get_all_nodes()]
+
     def enable_command_buttons(self):
         self.status_request_button.config(state=tk.NORMAL)
         self.reset_request_button.config(state=tk.NORMAL)
@@ -172,8 +175,8 @@ class App:
             self.name_label.config(text="Name: ")
             self.eui_label.config(text="Dev EUI: ")
             self.device_type_label.config(text="Unit Type: ")
-            # self.rssi_label.config(text="RSSI: ")
-            # self.snr_label.config(text="SNR: ")
+            self.rssi_label.config(text="RSSI: ")
+            self.snr_label.config(text="SNR: ")
             self.online_label.config(text="Online: ")
             self.last_seen_label.config(text="Last Seen at: ")
             self.disable_command_buttons()
@@ -204,6 +207,7 @@ class App:
                     # Log the node removal
                     timestamp = self.get_time()
                     event_info = f"{timestamp} Node successfully removed, dev eui - {dev_eui}, name - {name}, Node type - {device_type}"
+                    self.update_combobox()
                     self.add_event_to_listbox(event_info)
                 except grpc.RpcError as e:
                     error_details = e.details() if e.details() else "Unknown error"
@@ -261,6 +265,7 @@ class App:
             self.add_node_window.destroy()
 
             # Log the node addition
+            self.update_combobox()
             timestamp = self.get_time()
             event_info = f"{timestamp} Node successfully added, dev eui - {dev_eui}, name - {name}, Node type - {device_type}"
             self.add_event_to_listbox(event_info)
@@ -373,10 +378,31 @@ class App:
         message = data.get('object', {}).get('message', 'No message')
         rssi = data['rxInfo'][0]['rssi'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
         snr = data['rxInfo'][0]['snr'] if 'rxInfo' in data and len(data['rxInfo']) > 0 else 'N/A'
+        self.rssi_label.config(text=f"RSSI: {rssi}")
+        self.snr_label.config(text=f"SNR: {snr}")
+
         if "Alert" in message:
-            # self.show_alert("Alert", f"Alert triggered by device {device_name}!")
             alert_info = f"Alert triggered by device {device_name} - {message}"
             self.master.after(0, lambda: self.add_alert_to_listbox(alert_info))
+
+            # Send 0xFF to Sound Unit and Wearable Alert Unit devices
+            for node in self.node_manager.get_all_nodes():
+                if node.device_type in ["Sound Unit", "Wearable Alert Unit", "LiDAR unit"]:
+                    self.chirpstack_client.enqueue_downlink(node.dev_eui, bytes([0xFF]))
+                    timestamp = self.get_time()
+                    event_info = f"{timestamp} - Downlink sent to device {node.name} - {node.dev_eui}, [0xFF] - Alert Response"
+                    self.master.after(0, lambda: self.add_event_to_listbox(event_info))
+
+        elif "Status" in message:
+            status_info = f"Status message from device {device_name} - {message}"
+            self.master.after(0, lambda: self.add_alert_to_listbox(status_info))
+        elif "Data" in message:
+            data_info = f"Data message from device {device_name} - {message}"
+            self.master.after(0, lambda: self.add_alert_to_listbox(data_info))
+        elif "Reset" in message:
+            reset_info = f"Reset message from device {device_name} - {message}"
+            self.master.after(0, lambda: self.add_alert_to_listbox(reset_info))
+
         timestamp = self.get_time()
         event_info = f"{timestamp} - Uplink - Device: {device_name}, RSSI: {rssi}, SNR: {snr}, Message: {message}"
         self.master.after(0, lambda: self.add_event_to_listbox(event_info))

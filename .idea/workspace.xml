@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function">
-      <change afterPath="$PROJECT_DIR$/events_log.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="7ee38643-040a-4532-abd0-3618038b525a" name="Changes" comment="added routine parsing and handling of alert notification&#10;added auto send to other units of alerts">
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chirpstack_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/chirpstack_client.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -220,7 +217,23 @@
       <option name="project" value="LOCAL" />
       <updated>1722806433552</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="remade layout of app&#10;added alerts specific log window&#10;set more data&#10;disabled rssi/snr attr fetching&#10;added periodic refresh">
+      <option name="closed" value="true" />
+      <created>1722866184516</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1722866184516</updated>
+    </task>
+    <task id="LOCAL-00013" summary="added routine parsing and handling of alert notification&#10;added auto send to other units of alerts">
+      <option name="closed" value="true" />
+      <created>1723324416776</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1723324416776</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -257,6 +270,8 @@
     <MESSAGE value="added thread handling for periodic refresh functionality &#10;needed for sequential status updates" />
     <MESSAGE value="removed periodic refresh functuionallity, needs a bit more thinking&#10;implemented uplink handling with mqtt broker" />
     <MESSAGE value="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added device type functionality, doesnt do anything special yet but the attribute exists &#10;changed node addition logic to fit device type function" />
+    <MESSAGE value="remade layout of app&#10;added alerts specific log window&#10;set more data&#10;disabled rssi/snr attr fetching&#10;added periodic refresh" />
+    <MESSAGE value="added routine parsing and handling of alert notification&#10;added auto send to other units of alerts" />
+    <option name="LAST_COMMIT_MESSAGE" value="added routine parsing and handling of alert notification&#10;added auto send to other units of alerts" />
   </component>
 </project>
